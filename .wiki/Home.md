@@ -25,5 +25,5 @@ print('Sunset:     ${result.sunset.toStringAsFixed(4)} h');
 
 ## Pages
 
-- [API Reference](API-Reference) — Full function and type reference
-- [Architecture](Architecture) — Algorithm design and implementation notes
+- [API Reference](API-Reference): Full function and type reference
+- [Architecture](Architecture): Algorithm design and implementation notes
