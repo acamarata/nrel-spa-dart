@@ -1,0 +1,21 @@
+name: nrel_spa
+description: >
+  NREL Solar Position Algorithm for Dart and Flutter. Calculates solar zenith,
+  azimuth, sunrise, sunset, and solar noon for any location and time.
+  Pure Dart, zero dependencies, ±0.0003° accuracy.
+version: 1.0.0
+repository: https://github.com/acamarata/nrel-spa-dart
+issue_tracker: https://github.com/acamarata/nrel-spa-dart/issues
+topics:
+  - solar
+  - astronomy
+  - sunrise
+  - sunset
+  - solar-position
+
+environment:
+  sdk: ^3.7.0
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.8
