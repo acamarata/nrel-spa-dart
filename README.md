@@ -70,6 +70,10 @@ for (final angle in result.angles) {
 
 Returns `SpaResult` with `zenith`, `azimuth`, `sunrise`, `solarNoon`, `sunset`, and `angles`.
 
+## Architecture
+
+A direct port of the NREL Solar Position Algorithm (Reda & Andreas 2004) to Dart. The implementation follows the original algorithm's 142 intermediate calculations exactly. Custom zenith angles are computed in a single pass alongside the primary solar angles using the same ephemeris state.
+
 ## Compatibility
 
 Dart SDK 3.7.0+. Works in Flutter, Dart CLI, and server-side Dart. Zero dependencies.
