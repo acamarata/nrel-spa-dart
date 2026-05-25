@@ -1216,14 +1216,41 @@ SpaAnglesResult _adjustForCustomAngle(_Spa base, double zenithAngle) {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
+/// Format fractional hours to HH:MM:SS string.
+///
+/// Returns "N/A" for non-finite or negative values (polar night/day scenarios).
+///
+/// - [hours]: Fractional hours (e.g., 12.5 for 12:30:00).
+/// - Returns: Formatted time string in HH:MM:SS format, or "N/A".
+///
+/// SPORT: nrel-spa-dart / formatTime
+String formatTime(double hours) {
+  if (!hours.isFinite || hours < 0) return 'N/A';
+  final totalSec = (hours * 3600).round();
+  // Wrap at 24h: values near midnight can round to 24:00:00
+  final h = (totalSec ~/ 3600) % 24;
+  final rem = totalSec - (totalSec ~/ 3600) * 3600;
+  final m = rem ~/ 60;
+  final s = rem - m * 60;
+  return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+}
+
 /// Compute solar position for the given parameters.
 ///
-/// [date] is used in UTC components.
-/// [latitude] is in degrees (-90 to 90, south = negative).
-/// [longitude] is in degrees (-180 to 180, west = negative).
-/// [timezone] is hours from UTC (e.g., -5 for EST).
-/// [customAngles] are zenith angles in degrees for which rise/set times
-/// should be calculated (e.g., [96, 102] for civil/nautical twilight).
+/// - [date] is used in UTC components.
+/// - [latitude] is in degrees (-90 to 90, south = negative).
+/// - [longitude] is in degrees (-180 to 180, west = negative).
+/// - [timezone] is hours from UTC (e.g., -5 for EST).
+/// - [functionCode] controls what is calculated. One of [spaZa], [spaZaInc],
+///   [spaZaRts] (default), or [spaAll]. Use [spaZaInc] or [spaAll] to get the
+///   surface [SpaResult.incidence] angle (requires [slope] and [azmRotation]).
+/// - [customAngles] are zenith angles in degrees for which custom rise/set times
+///   are calculated (e.g., `[96, 102]` for civil/nautical twilight). Requires
+///   an RTS function code ([spaZaRts] or [spaAll]).
+///
+/// Throws [ArgumentError] if any input is out of the NREL SPA valid range.
+///
+/// SPORT: nrel-spa-dart / getSpa
 SpaResult getSpa(
   DateTime date,
   double latitude,
@@ -1237,8 +1264,22 @@ SpaResult getSpa(
   double slope = 0,
   double azmRotation = 0,
   double atmosRefract = 0.5667,
+  int functionCode = spaZaRts,
   List<double> customAngles = const [],
 }) {
+  if (functionCode < 0 || functionCode > 3) {
+    throw ArgumentError(
+      'functionCode must be 0 (spaZa), 1 (spaZaInc), 2 (spaZaRts), or 3 (spaAll), got $functionCode',
+    );
+  }
+  if (customAngles.isNotEmpty &&
+      functionCode != spaZaRts &&
+      functionCode != spaAll) {
+    throw ArgumentError(
+      'customAngles require an RTS function code (spaZaRts or spaAll)',
+    );
+  }
+
   final d = _Spa();
   d.year = date.toUtc().year;
   d.month = date.toUtc().month;
@@ -1257,12 +1298,16 @@ SpaResult getSpa(
   d.slope = slope;
   d.azmRotation = azmRotation;
   d.atmosRefract = atmosRefract;
-  d.function = _sPaZaRts;
+  d.function = functionCode;
 
   final rc = _spaCalculate(d);
   if (rc != 0) {
     throw ArgumentError('SPA calculation failed (error code $rc)');
   }
+
+  // sunrise/solarNoon/sunset are only populated for RTS function codes.
+  final hasRts = functionCode == spaZaRts || functionCode == spaAll;
+  final hasInc = functionCode == spaZaInc || functionCode == spaAll;
 
   final angleResults = customAngles
       .map((z) => _adjustForCustomAngle(d, z))
@@ -1271,9 +1316,74 @@ SpaResult getSpa(
   return SpaResult(
     zenith: d.zenith,
     azimuth: d.azimuth,
-    sunrise: d.sunrise,
-    solarNoon: d.suntransit,
-    sunset: d.sunset,
+    sunrise: hasRts ? d.sunrise : double.nan,
+    solarNoon: hasRts ? d.suntransit : double.nan,
+    sunset: hasRts ? d.sunset : double.nan,
+    incidence: hasInc ? d.incidence : double.nan,
     angles: angleResults,
+  );
+}
+
+/// Same as [getSpa], but formats sunrise, solarNoon, and sunset as HH:MM:SS
+/// strings. Returns "N/A" for time fields during polar day or polar night.
+///
+/// - [date] is used in UTC components.
+/// - [latitude] is in degrees (-90 to 90, south = negative).
+/// - [longitude] is in degrees (-180 to 180, west = negative).
+/// - [timezone] is hours from UTC (e.g., -5 for EST).
+/// - [functionCode] controls what is calculated (see [getSpa] for details).
+/// - [customAngles] are zenith angles in degrees for custom rise/set times.
+///
+/// Throws [ArgumentError] if any input is out of the NREL SPA valid range.
+///
+/// SPORT: nrel-spa-dart / calcSpa
+SpaFormattedResult calcSpa(
+  DateTime date,
+  double latitude,
+  double longitude,
+  double timezone, {
+  double elevation = 0,
+  double pressure = 1013,
+  double temperature = 15,
+  double deltaUt1 = 0,
+  double deltaT = 67,
+  double slope = 0,
+  double azmRotation = 0,
+  double atmosRefract = 0.5667,
+  int functionCode = spaZaRts,
+  List<double> customAngles = const [],
+}) {
+  final raw = getSpa(
+    date,
+    latitude,
+    longitude,
+    timezone,
+    elevation: elevation,
+    pressure: pressure,
+    temperature: temperature,
+    deltaUt1: deltaUt1,
+    deltaT: deltaT,
+    slope: slope,
+    azmRotation: azmRotation,
+    atmosRefract: atmosRefract,
+    functionCode: functionCode,
+    customAngles: customAngles,
+  );
+
+  return SpaFormattedResult(
+    zenith: raw.zenith,
+    azimuth: raw.azimuth,
+    sunrise: formatTime(raw.sunrise),
+    solarNoon: formatTime(raw.solarNoon),
+    sunset: formatTime(raw.sunset),
+    incidence: raw.incidence,
+    angles: raw.angles
+        .map(
+          (a) => SpaFormattedAnglesResult(
+            sunrise: formatTime(a.sunrise),
+            sunset: formatTime(a.sunset),
+          ),
+        )
+        .toList(growable: false),
   );
 }

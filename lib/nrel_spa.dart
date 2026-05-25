@@ -6,4 +6,4 @@
 library;
 
 export 'src/types.dart';
-export 'src/spa.dart' show getSpa;
+export 'src/spa.dart' show getSpa, calcSpa, formatTime;
