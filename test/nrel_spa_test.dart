@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:nrel_spa/nrel_spa.dart';
 import 'package:test/test.dart';
 
