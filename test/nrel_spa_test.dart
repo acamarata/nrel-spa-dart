@@ -126,24 +126,26 @@ void main() {
       expect(result.incidence.isNaN, isTrue);
     });
 
-    test('matches spaZaRts zenith/azimuth to within floating point tolerance',
-        () {
-      final za = getSpa(
-        DateTime.utc(2024, 3, 15, 12, 0, 0),
-        40.7128,
-        -74.0060,
-        -5.0,
-        functionCode: spaZa,
-      );
-      final rts = getSpa(
-        DateTime.utc(2024, 3, 15, 12, 0, 0),
-        40.7128,
-        -74.0060,
-        -5.0,
-      );
-      expect((za.zenith - rts.zenith).abs(), lessThan(1e-10));
-      expect((za.azimuth - rts.azimuth).abs(), lessThan(1e-10));
-    });
+    test(
+      'matches spaZaRts zenith/azimuth to within floating point tolerance',
+      () {
+        final za = getSpa(
+          DateTime.utc(2024, 3, 15, 12, 0, 0),
+          40.7128,
+          -74.0060,
+          -5.0,
+          functionCode: spaZa,
+        );
+        final rts = getSpa(
+          DateTime.utc(2024, 3, 15, 12, 0, 0),
+          40.7128,
+          -74.0060,
+          -5.0,
+        );
+        expect((za.zenith - rts.zenith).abs(), lessThan(1e-10));
+        expect((za.azimuth - rts.azimuth).abs(), lessThan(1e-10));
+      },
+    );
 
     test('throws when customAngles used with spaZa', () {
       expect(
@@ -366,8 +368,13 @@ void main() {
 
     test('throws for invalid functionCode', () {
       expect(
-        () => getSpa(DateTime.utc(2024, 1, 1), 40.0, -74.0, -5.0,
-            functionCode: 4),
+        () => getSpa(
+          DateTime.utc(2024, 1, 1),
+          40.0,
+          -74.0,
+          -5.0,
+          functionCode: 4,
+        ),
         throwsA(isA<ArgumentError>()),
       );
     });
@@ -420,10 +427,7 @@ void main() {
       );
       expect(result.angles.length, equals(1));
       expect(result.angles[0], isA<SpaFormattedAnglesResult>());
-      expect(
-        result.angles[0].sunrise,
-        matches(RegExp(r'^\d{2}:\d{2}:\d{2}$')),
-      );
+      expect(result.angles[0].sunrise, matches(RegExp(r'^\d{2}:\d{2}:\d{2}$')));
     });
 
     test('incidence populated for spaAll', () {
