@@ -3,6 +3,7 @@
 [![pub package](https://img.shields.io/pub/v/nrel_spa.svg)](https://pub.dev/packages/nrel_spa)
 [![CI](https://github.com/acamarata/nrel-spa-dart/actions/workflows/ci.yml/badge.svg)](https://github.com/acamarata/nrel-spa-dart/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Wiki](https://img.shields.io/badge/docs-wiki-blue)](https://github.com/acamarata/nrel-spa-dart/wiki)
 
 NREL Solar Position Algorithm for Dart and Flutter. Calculates solar zenith, azimuth, sunrise, sunset, and solar noon for any location and time. Pure Dart, zero dependencies.
 
@@ -54,25 +55,9 @@ for (final angle in result.angles) {
 
 ## API
 
-### `getSpa(date, latitude, longitude, timezone, {...})`
+`getSpa(date, latitude, longitude, timezone, {...})` returns `SpaResult` with `zenith`, `azimuth`, `sunrise`, `solarNoon`, `sunset`, and `angles`. Use `calcSpa` for pre-formatted HH:MM:SS strings.
 
-| Parameter | Type | Default | Description |
-| --- | --- | --- | --- |
-| `date` | `DateTime` | required | UTC date and time |
-| `latitude` | `double` | required | Degrees (-90 to 90) |
-| `longitude` | `double` | required | Degrees (-180 to 180) |
-| `timezone` | `double` | required | Hours from UTC |
-| `elevation` | `double` | 0 | Meters above sea level |
-| `pressure` | `double` | 1013 | Atmospheric pressure (mbar) |
-| `temperature` | `double` | 15 | Temperature (Celsius) |
-| `deltaT` | `double` | 67 | TT - UT1 (seconds) |
-| `customAngles` | `List<double>` | [] | Zenith angles for rise/set |
-
-Returns `SpaResult` with `zenith`, `azimuth`, `sunrise`, `solarNoon`, `sunset`, and `angles`.
-
-## Architecture
-
-A direct port of the NREL Solar Position Algorithm (Reda & Andreas 2004) to Dart. The implementation follows the original algorithm's 142 intermediate calculations exactly. Custom zenith angles are computed in a single pass alongside the primary solar angles using the same ephemeris state.
+Full parameter reference and type definitions: [API Reference](https://github.com/acamarata/nrel-spa-dart/wiki/API-Reference).
 
 ## Compatibility
 
