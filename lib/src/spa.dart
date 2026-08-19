@@ -1199,12 +1199,56 @@ int _spaCalculate(_Spa spa) {
 
 // ─── Custom angle adjustment ─────────────────────────────────────────────────
 
+/// The value the NREL reference writes into srha, ssha, sta, suntransit, sunrise and
+/// sunset when the sun does not cross the horizon on the requested day.
+const double _spaNoEvent = -99999;
+
+/// True when a raw SPA field carries the "no such event" sentinel rather than a time.
+///
+/// A magnitude check rather than an equality check: the sentinel is arithmetic-poisoned
+/// downstream (a custom angle offsets it by a few hours, giving -100001.38 and similar).
+/// Real fractional-hour times sit within roughly [-24, 48] after timezone and day-wrap.
+bool _isNoEvent(double value) => !value.isFinite || value <= _spaNoEvent + 1000;
+
+/// Present a raw SPA rise/set field to callers, mapping "no such event" to NaN.
+///
+/// The port stays faithful to the reference C internally — the sentinel is what NREL
+/// specifies — but no sentinel may cross the public API. It is a finite number, so every
+/// `isFinite` guard in every downstream consumer accepted it and rendered it as a real
+/// clock time (PKG-03).
+double _presentRts(double value) => _isNoEvent(value) ? double.nan : value;
+
+/// Local solar transit (solar noon) in fractional hours of local clock time.
+///
+/// Sunrise and sunset genuinely stop existing above the polar circles, but the sun crosses
+/// the local meridian every day everywhere on Earth, so solar noon is always defined. The
+/// reference blanks `suntransit` alongside sunrise and sunset in its no-rise/set branch,
+/// which downstream reads as "there is no solar noon today" and takes Dhuhr and Asr with
+/// it (PKG-05).
+///
+/// The equation of time is computed unconditionally, before that branch, so transit is
+/// recoverable as `12 - (4 * (longitude - 15 * timezone) + eot) / 60`. Used ONLY where the
+/// reference has nothing to offer; where it produces a transit, that value is passed
+/// through untouched, so no existing result moves.
+double _transitFromEquationOfTime(_Spa d) {
+  final timeCorrectionMinutes = 4 * (d.longitude - 15 * d.timezone) + d.eot;
+  final transit = 12 - timeCorrectionMinutes / 60;
+  if (!transit.isFinite) return double.nan;
+  return ((transit % 24) + 24) % 24;
+}
+
 SpaAnglesResult _adjustForCustomAngle(_Spa base, double zenithAngle) {
   final phi = base.latitude * pi / 180;
   final delta = base.delta * pi / 180;
   final z = zenithAngle * pi / 180;
   final cosH0 = (cos(z) - sin(phi) * sin(delta)) / (cos(phi) * cos(delta));
   if (cosH0 < -1 || cosH0 > 1) {
+    return SpaAnglesResult(sunrise: double.nan, sunset: double.nan);
+  }
+  // A depression angle can be geometrically reachable on a day the sun never rises, but
+  // these times are measured from solar transit — and the reference blanks transit on such
+  // days. Offsetting from it produced finite, plausible, wholly wrong values (PKG-03).
+  if (_isNoEvent(base.suntransit)) {
     return SpaAnglesResult(sunrise: double.nan, sunset: double.nan);
   }
   final h0h = acos(cosH0) * 180 / pi / 15;
@@ -1316,9 +1360,13 @@ SpaResult getSpa(
   return SpaResult(
     zenith: d.zenith,
     azimuth: d.azimuth,
-    sunrise: hasRts ? d.sunrise : double.nan,
-    solarNoon: hasRts ? d.suntransit : double.nan,
-    sunset: hasRts ? d.sunset : double.nan,
+    sunrise: hasRts ? _presentRts(d.sunrise) : double.nan,
+    // Solar noon is defined every day at every latitude — recover it when the reference
+    // discarded it along with the (genuinely absent) sunrise and sunset.
+    solarNoon: hasRts
+        ? (_isNoEvent(d.suntransit) ? _transitFromEquationOfTime(d) : d.suntransit)
+        : double.nan,
+    sunset: hasRts ? _presentRts(d.sunset) : double.nan,
     incidence: hasInc ? d.incidence : double.nan,
     angles: angleResults,
   );
