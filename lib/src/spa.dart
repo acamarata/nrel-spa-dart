@@ -1363,9 +1363,12 @@ SpaResult getSpa(
     sunrise: hasRts ? _presentRts(d.sunrise) : double.nan,
     // Solar noon is defined every day at every latitude — recover it when the reference
     // discarded it along with the (genuinely absent) sunrise and sunset.
-    solarNoon: hasRts
-        ? (_isNoEvent(d.suntransit) ? _transitFromEquationOfTime(d) : d.suntransit)
-        : double.nan,
+    solarNoon:
+        hasRts
+            ? (_isNoEvent(d.suntransit)
+                ? _transitFromEquationOfTime(d)
+                : d.suntransit)
+            : double.nan,
     sunset: hasRts ? _presentRts(d.sunset) : double.nan,
     incidence: hasInc ? d.incidence : double.nan,
     angles: angleResults,
