@@ -16,6 +16,21 @@ dependencies:
   nrel_spa: ^1.0.0
 ```
 
+## Polar day and polar night
+
+Sunrise and sunset genuinely stop occurring above the polar circles. On those days
+`sunrise` and `sunset` come back as `double.nan`, and the formatted API renders `"N/A"`.
+
+`solarNoon` is **always** available. The sun crosses the local meridian every day
+everywhere on Earth, so solar transit is defined even when that crossing happens below the
+horizon, as it does throughout polar night.
+
+The NREL reference signals "no such event" with the magic number `-99999`. That value
+never crosses this package's public API: it is finite, so it passes `isFinite` checks
+unnoticed and renders as a real clock time. The internal port stays faithful to the
+reference; the boundary converts it.
+
+
 ## Quick Start
 
 ```dart
