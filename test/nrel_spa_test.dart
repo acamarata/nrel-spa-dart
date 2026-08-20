@@ -574,4 +574,112 @@ void main() {
       expect(result.angles[0].sunset, isA<String>());
     });
   });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // PKG-03 / PKG-05 — polar behaviour.
+  //
+  // The NREL reference writes -99999 into srha/ssha/sta/suntransit/sunrise/sunset when
+  // the sun does not cross the horizon. That value is FINITE, so `isFinite` guards in
+  // downstream consumers accepted it and rendered it as a real clock time. Separately,
+  // solar transit is discarded by that same branch even though the sun crosses the
+  // meridian every day everywhere, which cost Dhuhr and Asr at polar latitudes.
+  // ───────────────────────────────────────────────────────────────────────────
+  group('PKG-03/05 polar handling', () {
+    final polar = [
+      (
+        'Longyearbyen midnight sun',
+        DateTime.utc(2026, 6, 21, 12),
+        78.22334,
+        15.64689,
+        1.0,
+      ),
+      (
+        'Longyearbyen polar night',
+        DateTime.utc(2026, 12, 21, 12),
+        78.22334,
+        15.64689,
+        1.0,
+      ),
+      (
+        'Tromso midnight sun',
+        DateTime.utc(2026, 6, 21, 12),
+        69.6492,
+        18.9553,
+        2.0,
+      ),
+      (
+        'McMurdo polar night',
+        DateTime.utc(2026, 6, 21, 12),
+        -77.8419,
+        166.6863,
+        13.0,
+      ),
+    ];
+
+    for (final (name, date, lat, lng, tz) in polar) {
+      test('$name: sunrise/sunset are NaN, never the sentinel', () {
+        final r = getSpa(date, lat, lng, tz);
+        expect(r.sunrise.isNaN, isTrue, reason: 'sunrise was ${r.sunrise}');
+        expect(r.sunset.isNaN, isTrue, reason: 'sunset was ${r.sunset}');
+      });
+
+      test('$name: solarNoon is a real time of day', () {
+        final r = getSpa(date, lat, lng, tz);
+        expect(
+          r.solarNoon.isFinite,
+          isTrue,
+          reason: 'solarNoon was ${r.solarNoon}',
+        );
+        expect(r.solarNoon, greaterThanOrEqualTo(0));
+        expect(r.solarNoon, lessThan(24));
+      });
+
+      test('$name: custom angles are NaN, never sentinel-derived', () {
+        final r = getSpa(date, lat, lng, tz, customAngles: [108, 105]);
+        for (final a in r.angles) {
+          expect(
+            a.sunrise.isNaN || a.sunrise.abs() < 48,
+            isTrue,
+            reason: 'angle sunrise was ${a.sunrise}',
+          );
+          expect(
+            a.sunset.isNaN || a.sunset.abs() < 48,
+            isTrue,
+            reason: 'angle sunset was ${a.sunset}',
+          );
+        }
+      });
+    }
+
+    test('normal latitude keeps the reference transit exactly', () {
+      final r = getSpa(DateTime.utc(2026, 3, 15, 12), 40.7128, -74.006, -4.0);
+      expect(r.sunrise.isFinite, isTrue);
+      expect(r.sunset.isFinite, isTrue);
+      expect(
+        (r.solarNoon - 13.080663819661).abs() < 1e-6,
+        isTrue,
+        reason: 'transit drifted: ${r.solarNoon}',
+      );
+    });
+
+    test('no discontinuity across the Tromso sunrise boundary', () {
+      double? prev;
+      for (var day = 15; day <= 30; day++) {
+        final r = getSpa(DateTime.utc(2026, 5, day, 12), 69.6492, 18.9553, 2.0);
+        expect(
+          r.solarNoon.isFinite,
+          isTrue,
+          reason: 'day $day lost solar noon',
+        );
+        if (prev != null) {
+          expect(
+            (r.solarNoon - prev).abs() < 0.05,
+            isTrue,
+            reason: 'discontinuity at May $day: $prev -> ${r.solarNoon}',
+          );
+        }
+        prev = r.solarNoon;
+      }
+    });
+  });
 }

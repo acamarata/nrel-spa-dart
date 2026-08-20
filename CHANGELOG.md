@@ -1,3 +1,21 @@
+## 1.1.0
+
+- **The NREL "no such event" sentinel no longer crosses the public API.** The reference
+  implementation writes `-99999` into `srha`, `ssha`, `sta`, `suntransit`, `sunrise` and
+  `sunset` when the sun does not cross the horizon, and that value was handed to callers
+  unchanged. Because it is a *finite* number it passed every `isFinite` guard downstream
+  and rendered as a real clock time. `getSpa` now returns `double.nan` for events that do
+  not occur. Two leak paths closed: the raw result fields, and `_adjustForCustomAngle`,
+  which offsets from solar transit and so produced plausible-looking values such as
+  `-100001.38`.
+- **`solarNoon` survives polar day and polar night.** The sun crosses the local meridian
+  every day everywhere on Earth, so solar transit is always defined, but the reference
+  blanks it alongside the genuinely absent sunrise and sunset. It is now recovered from
+  the equation of time. Where the reference produces a transit that value passes through
+  untouched, so no existing result moves.
+- `lib/src/spa.dart` remains a faithful port of the reference, sentinel included; the
+  conversion happens at the API boundary.
+
 # Changelog
 
 ## [1.0.1] - 2026-05-25
