@@ -720,12 +720,25 @@ void _dateInputTests() {
 
     test('the string form matches the TypeScript port exactly', () {
       // Cross-port parity: nrel-spa 2.2.0 returns this same value for the same input.
-      expect(getSpa('2026-08-22', lat, lng, tz).sunrise.toStringAsFixed(6), '5.222164');
+      expect(
+        getSpa('2026-08-22', lat, lng, tz).sunrise.toStringAsFixed(6),
+        '5.222164',
+      );
     });
 
     test('rejects impossible and malformed calendar days', () {
-      for (final bad in ['2026-02-31', '2026-13-01', 'not-a-date', '2026-8-2', '']) {
-        expect(() => getSpa(bad, lat, lng, tz), throwsArgumentError, reason: bad);
+      for (final bad in [
+        '2026-02-31',
+        '2026-13-01',
+        'not-a-date',
+        '2026-8-2',
+        '',
+      ]) {
+        expect(
+          () => getSpa(bad, lat, lng, tz),
+          throwsArgumentError,
+          reason: bad,
+        );
       }
     });
 
@@ -733,11 +746,17 @@ void _dateInputTests() {
       expect(() => getSpa(20260822, lat, lng, tz), throwsArgumentError);
     });
 
-    test('toSpaInstant is idempotent for DateTime and anchors strings at noon', () {
-      final d = DateTime.utc(2026, 8, 22, 7, 31);
-      expect(identical(toSpaInstant(d), d), isTrue);
-      expect(toSpaInstant('2026-08-22').toIso8601String(), '2026-08-22T12:00:00.000Z');
-    });
+    test(
+      'toSpaInstant is idempotent for DateTime and anchors strings at noon',
+      () {
+        final d = DateTime.utc(2026, 8, 22, 7, 31);
+        expect(identical(toSpaInstant(d), d), isTrue);
+        expect(
+          toSpaInstant('2026-08-22').toIso8601String(),
+          '2026-08-22T12:00:00.000Z',
+        );
+      },
+    );
 
     test('calcSpa accepts the string form too', () {
       final f = calcSpa('2026-08-22', lat, lng, tz);
