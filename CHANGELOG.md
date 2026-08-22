@@ -1,3 +1,27 @@
+## 1.2.0
+
+### Added
+- **`getSpa` and `calcSpa` accept a `'YYYY-MM-DD'` string as well as a `DateTime`,** with `toSpaInstant` exported.
+
+  The two functions answer two different kinds of question from one argument, and they do not want the same input. Instantaneous position (`zenith`, `azimuth`, `incidence`) depends on the exact moment, and a `DateTime` is exactly right. Rise, transit and set depend only on the calendar **day** — verified: holding the date and varying the hour from 00 to 23 leaves `sunrise`, `solarNoon` and `sunset` identical to six decimal places.
+
+  For that second case a bare `DateTime` was a trap. `toUtc()` deliberately discards the author's frame in favour of the instant, which is right for position and wrong for a day: `DateTime(2026, 8, 22)` is `2026-08-21T15:00Z` in Tokyo, so a Tokyo caller silently received the previous day's sunrise. Measured at 59 seconds out for New York (5.205775 against 5.222164 hours).
+
+  A `'YYYY-MM-DD'` string names the day outright, anchored at UTC noon — the furthest point from either day boundary. It returns the identical value on every host, and matches the TypeScript `nrel-spa` 2.2.0 output exactly, which a test now asserts.
+
+### Changed
+- Nothing on the `DateTime` path; it behaves exactly as in 1.1.0. A test guards that instantaneous position still varies with the hour, so a future change cannot normalise the instant away.
+
+### Notes on upgrading
+Purely additive. If you use this package to ask about a **day** rather than a moment, prefer the string form:
+
+```dart
+getSpa('2026-08-22', lat, lng, tz);        // unambiguous
+getSpa(DateTime(2026, 8, 22), lat, lng, tz); // depends on where the machine is
+```
+
+Verified downstream: `pray_calc_dart` 1.2.0's full suite, including its 282-vector cross-language parity fixture, passes unchanged against this release.
+
 ## 1.1.0
 
 - **The NREL "no such event" sentinel no longer crosses the public API.** The reference

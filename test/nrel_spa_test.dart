@@ -682,4 +682,66 @@ void main() {
       }
     });
   });
+
+  _dateInputTests();
+}
+
+/// Calendar day vs instant. getSpa answers two different kinds of question from one
+/// argument: instantaneous position depends on the moment, rise/transit/set depend only
+/// on the day. A bare DateTime is a trap for the second — DateTime(2026, 8, 22) is
+/// 2026-08-21T15:00Z in Tokyo, so a Tokyo caller silently got the previous day's sunrise.
+void _dateInputTests() {
+  group('date input — calendar day vs instant', () {
+    const lat = 40.7128, lng = -74.006, tz = -5.0;
+
+    test('rise/transit/set depend only on the day, not the hour', () {
+      final a = getSpa(DateTime.utc(2026, 8, 22, 0), lat, lng, tz);
+      final b = getSpa(DateTime.utc(2026, 8, 22, 23), lat, lng, tz);
+      expect(a.sunrise, b.sunrise);
+      expect(a.solarNoon, b.solarNoon);
+      expect(a.sunset, b.sunset);
+    });
+
+    test('instantaneous position still depends on the hour', () {
+      // Guards against a future change normalising the instant away and silently
+      // breaking the primary use of the library.
+      final a = getSpa(DateTime.utc(2026, 8, 22, 0), lat, lng, tz);
+      final b = getSpa(DateTime.utc(2026, 8, 22, 23), lat, lng, tz);
+      expect(a.zenith, isNot(b.zenith));
+    });
+
+    test('a YYYY-MM-DD string is anchored at UTC noon', () {
+      final viaString = getSpa('2026-08-22', lat, lng, tz);
+      final viaNoon = getSpa(DateTime.utc(2026, 8, 22, 12), lat, lng, tz);
+      expect(viaString.sunrise, viaNoon.sunrise);
+      expect(viaString.sunset, viaNoon.sunset);
+      expect(viaString.zenith, viaNoon.zenith);
+    });
+
+    test('the string form matches the TypeScript port exactly', () {
+      // Cross-port parity: nrel-spa 2.2.0 returns this same value for the same input.
+      expect(getSpa('2026-08-22', lat, lng, tz).sunrise.toStringAsFixed(6), '5.222164');
+    });
+
+    test('rejects impossible and malformed calendar days', () {
+      for (final bad in ['2026-02-31', '2026-13-01', 'not-a-date', '2026-8-2', '']) {
+        expect(() => getSpa(bad, lat, lng, tz), throwsArgumentError, reason: bad);
+      }
+    });
+
+    test('rejects a type that is neither DateTime nor String', () {
+      expect(() => getSpa(20260822, lat, lng, tz), throwsArgumentError);
+    });
+
+    test('toSpaInstant is idempotent for DateTime and anchors strings at noon', () {
+      final d = DateTime.utc(2026, 8, 22, 7, 31);
+      expect(identical(toSpaInstant(d), d), isTrue);
+      expect(toSpaInstant('2026-08-22').toIso8601String(), '2026-08-22T12:00:00.000Z');
+    });
+
+    test('calcSpa accepts the string form too', () {
+      final f = calcSpa('2026-08-22', lat, lng, tz);
+      expect(f.sunrise, matches(RegExp(r'^\d{2}:\d{2}:\d{2}$')));
+    });
+  });
 }

@@ -16,6 +16,32 @@ dependencies:
   nrel_spa: ^1.0.0
 ```
 
+## Dates: a day or a moment
+
+`getSpa` answers two different kinds of question, and they do not want the same input.
+
+| You want | Depends on | Pass |
+|---|---|---|
+| `zenith`, `azimuth`, `incidence` | the exact moment | a `DateTime` |
+| `sunrise`, `solarNoon`, `sunset`, `customAngles` | the calendar **day** only | `'YYYY-MM-DD'` |
+
+Rise, transit and set are independent of the time of day: hold the date and vary the hour from
+00 to 23 and all three are identical to six decimal places. So for those, what matters is only
+*which day you meant*.
+
+A `DateTime` cannot reliably say. `toUtc()` discards the author's frame in favour of the
+instant, so `DateTime(2026, 8, 22)` is `2026-08-21T15:00Z` in Tokyo and a Tokyo caller gets the
+previous day's sunrise, 59 seconds out, silently.
+
+```dart
+getSpa('2026-08-22', lat, lng, tz);          // a day. same answer on every machine
+getSpa(DateTime.now(), lat, lng, tz);        // a moment. correct for position
+getSpa(DateTime(2026, 8, 22), lat, lng, tz); // ambiguous — avoid for rise/set
+```
+
+The string form is anchored at UTC noon and matches the TypeScript `nrel-spa` package exactly.
+
+
 ## Polar day and polar night
 
 Sunrise and sunset genuinely stop occurring above the polar circles. On those days

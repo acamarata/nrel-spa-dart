@@ -1294,9 +1294,57 @@ String formatTime(double hours) {
 ///
 /// Throws [ArgumentError] if any input is out of the NREL SPA valid range.
 ///
+/// Resolve a calendar day or an instant to the moment SPA should be evaluated at.
+///
+/// [getSpa] answers two different kinds of question from one argument, and they do not want
+/// the same input:
+///
+/// - **Instantaneous position** ([SpaResult.zenith], [SpaResult.azimuth],
+///   [SpaResult.incidence]) depends on the exact moment. A [DateTime] is exactly right, and
+///   `toUtc()` describes it unambiguously.
+/// - **Rise, transit and set** ([SpaResult.sunrise], [SpaResult.solarNoon],
+///   [SpaResult.sunset], and any `customAngles`) depend only on the calendar DAY. Verified:
+///   holding the date and varying the hour from 00 to 23 leaves all three identical to six
+///   decimal places.
+///
+/// That second case is where a bare [DateTime] becomes a trap. `DateTime(2026, 8, 22)` is
+/// `2026-08-21T15:00Z` in Tokyo, so a Tokyo caller silently gets the previous day's sunrise —
+/// measured at 59 seconds out for New York. Dart's [DateTime] does record whether it is UTC,
+/// but `toUtc()` deliberately discards the author's frame in favour of the instant, which is
+/// correct for position and wrong for a day.
+///
+/// Passing a `'YYYY-MM-DD'` string removes the ambiguity: it names a calendar day outright,
+/// with no instant involved and no host timezone able to shift it. It is anchored at UTC noon,
+/// the furthest point from either day boundary.
+///
+/// Throws [ArgumentError] if [date] is neither a [DateTime] nor a real `'YYYY-MM-DD'` day.
+DateTime toSpaInstant(Object date) {
+  if (date is DateTime) return date;
+  if (date is String) {
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(date);
+    if (m == null) {
+      throw ArgumentError(
+        "SPA: expected a 'YYYY-MM-DD' calendar day or a DateTime, received '$date'",
+      );
+    }
+    final y = int.parse(m.group(1)!);
+    final mo = int.parse(m.group(2)!);
+    final d = int.parse(m.group(3)!);
+    final at = DateTime.utc(y, mo, d, 12);
+    // Round-trip check: rejects 2026-02-31 and friends, which DateTime.utc rolls over.
+    if (at.month != mo || at.day != d) {
+      throw ArgumentError("SPA: '$date' is not a real calendar day");
+    }
+    return at;
+  }
+  throw ArgumentError(
+    "SPA: date must be a DateTime or a 'YYYY-MM-DD' string, received ${date.runtimeType}",
+  );
+}
+
 /// SPORT: nrel-spa-dart / getSpa
 SpaResult getSpa(
-  DateTime date,
+  Object date,
   double latitude,
   double longitude,
   double timezone, {
@@ -1324,13 +1372,17 @@ SpaResult getSpa(
     );
   }
 
+  // `at` is the resolved instant (see toSpaInstant): the caller's DateTime used as-is, or
+  // UTC noon of the calendar day they named as a string.
+  final at = toSpaInstant(date).toUtc();
+
   final d = _Spa();
-  d.year = date.toUtc().year;
-  d.month = date.toUtc().month;
-  d.day = date.toUtc().day;
-  d.hour = date.toUtc().hour;
-  d.minute = date.toUtc().minute;
-  d.second = date.toUtc().second.toDouble();
+  d.year = at.year;
+  d.month = at.month;
+  d.day = at.day;
+  d.hour = at.hour;
+  d.minute = at.minute;
+  d.second = at.second.toDouble();
   d.longitude = longitude;
   d.latitude = latitude;
   d.timezone = timezone;
@@ -1389,7 +1441,7 @@ SpaResult getSpa(
 ///
 /// SPORT: nrel-spa-dart / calcSpa
 SpaFormattedResult calcSpa(
-  DateTime date,
+  Object date,
   double latitude,
   double longitude,
   double timezone, {
